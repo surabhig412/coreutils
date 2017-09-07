@@ -21,13 +21,17 @@ var (
 
 func main() {
 	flag.Parse()
-	if len(os.Args) == 1 {
+	Cat(os.Args)
+}
+
+func Cat(args []string) {
+	if len(args) == 1 {
 		io.Copy(os.Stdout, os.Stdin)
 		return
 	}
 
-	for _, fn := range os.Args[1:] {
-		fh, err := choose(fn)
+	for _, fn := range args[1:] {
+		fh, err := Choose(fn)
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -58,7 +62,7 @@ func main() {
 			if *displayDollarAtEnd || *displayNonPrintingChars || *displayTabChar {
 				var nonPrintingStr string
 				for _, value := range []byte(output) {
-					nonPrintingStr += getNonPrintingChar(value)
+					nonPrintingStr += GetNonPrintingStr(value)
 				}
 				output = nonPrintingStr
 			}
@@ -90,7 +94,7 @@ func main() {
 	}
 }
 
-func choose(name string) (io.ReadCloser, error) {
+func Choose(name string) (io.ReadCloser, error) {
 	splitArg := strings.Split(name, "-")
 	if len(splitArg) == 2 && flag.Lookup(splitArg[1]) != nil {
 		return nil, nil
@@ -107,32 +111,27 @@ func choose(name string) (io.ReadCloser, error) {
 		Control characters print as `^X' for control-X;
 		the delete character (octal 0177) prints as `^?'.
 		Non-ASCII characters (with the high bit set) are printed as `M-' (for meta) followed by the character for the low 7 bits.
+
+		160 = 128+32
+		255 = 128+127
 */
-func getNonPrintingChar(b byte) string {
-	if b >= 32 {
-		if b < 127 {
-			return string(b)
-		} else if b == 127 {
-			return "^?"
-		} else {
-			str := "M-"
-			if b >= 128+32 {
-				if b < 128+127 {
-					str += string(b - 128)
-				} else {
-					str += "^?"
-				}
-			} else {
-				str += "^" + string(b-128+64)
-			}
-			return str
-		}
-	} else if b == '\t' && *displayTabChar {
+func GetNonPrintingStr(b byte) string {
+	switch {
+	case b >= 32 && b < 127:
+		return string(b)
+	case b == 127:
+		return "^?"
+	case b > 127 && b < 160:
+		return "M-^" + string(b-128+64)
+	case b >= 160 && b < 255:
+		return "M-" + string(b-128)
+	case b >= 255:
+		return "M-^?"
+	case b == '\t' && *displayTabChar:
 		return "^I"
-	} else if b == '\t' {
+	case b == '\t':
 		return "\t"
-	} else {
+	default:
 		return "^" + string(b+64)
 	}
-	return ""
 }
