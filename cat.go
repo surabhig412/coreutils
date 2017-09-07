@@ -39,23 +39,55 @@ func main() {
 		}
 
 		defer fh.Close()
-		if *numberNonBlankOutputLines {
-			printNumberedNonBlankLines(fh)
-		} else if *displayDollarAtEnd {
-			printDollarLines(fh)
-		} else if *displayNonPrintingChars {
-			printNonPrintingChars(fh)
-		} else if *numberOutputLines {
-			printNumberedLines(fh)
-		} else if *singleSpacedOutput {
-			printSingleSpacedLines(fh)
-		} else if *displayTabChar {
-			printNonPrintingChars(fh)
-		} else {
-			io.Copy(os.Stdout, fh)
+		counter := 1
+		lineCounter := 0
+		flag := false
+		scanner := bufio.NewScanner(fh)
+		for scanner.Scan() {
+			output := scanner.Text()
+			if *numberOutputLines && !*numberNonBlankOutputLines {
+				output = fmt.Sprintf("\t%d %s", counter, output)
+				counter++
+			}
+			if *numberNonBlankOutputLines {
+				if output != "" {
+					output = fmt.Sprintf("\t%d %s", counter, output)
+					counter++
+				}
+			}
+			if *displayDollarAtEnd || *displayNonPrintingChars || *displayTabChar {
+				var nonPrintingStr string
+				for _, value := range []byte(output) {
+					nonPrintingStr += getNonPrintingChar(value)
+				}
+				output = nonPrintingStr
+			}
+			if *singleSpacedOutput {
+				if output != "" {
+					if flag && lineCounter >= 1 {
+						flag = false
+						lineCounter = 0
+					}
+				} else {
+					var str string
+					if *displayDollarAtEnd {
+						str = fmt.Sprintf("%s$", str)
+					}
+					if !flag {
+						io.Copy(os.Stdout, strings.NewReader(str+"\n"))
+					}
+					lineCounter++
+					flag = true
+					continue
+				}
+			}
+			if *displayDollarAtEnd {
+				output = fmt.Sprintf("%s$", output)
+			}
+			output = fmt.Sprintf("%s\n", output)
+			io.Copy(os.Stdout, strings.NewReader(output))
 		}
 	}
-
 }
 
 func choose(name string) (io.ReadCloser, error) {
@@ -67,73 +99,6 @@ func choose(name string) (io.ReadCloser, error) {
 		return os.Stdin, nil
 	} else {
 		return os.Open(name)
-	}
-}
-
-func printNumberedNonBlankLines(rc io.ReadCloser) {
-	scanner := bufio.NewScanner(rc)
-	counter := 1
-	for scanner.Scan() {
-		var output string
-		if scanner.Text() != "" {
-			output = fmt.Sprintf("\t%d %s\n", counter, scanner.Text())
-			counter++
-		} else {
-			output = "\n"
-		}
-		io.Copy(os.Stdout, strings.NewReader(output))
-	}
-}
-
-func printNumberedLines(rc io.ReadCloser) {
-	scanner := bufio.NewScanner(rc)
-	counter := 1
-	for scanner.Scan() {
-		io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("\t%d %s\n", counter, scanner.Text())))
-		counter++
-	}
-}
-
-func printDollarLines(rc io.ReadCloser) {
-	scanner := bufio.NewScanner(rc)
-	for scanner.Scan() {
-		var output string
-		for _, value := range scanner.Bytes() {
-			output += getNonPrintingChar(value)
-		}
-		io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("%s$\n", output)))
-	}
-}
-
-func printNonPrintingChars(rc io.ReadCloser) {
-	scanner := bufio.NewScanner(rc)
-	for scanner.Scan() {
-		var output string
-		for _, value := range scanner.Bytes() {
-			output += getNonPrintingChar(value)
-		}
-		io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("%s\n", output)))
-	}
-}
-
-func printSingleSpacedLines(rc io.ReadCloser) {
-	scanner := bufio.NewScanner(rc)
-	counter := 0
-	flag := false
-	for scanner.Scan() {
-		if scanner.Text() != "" {
-			if flag && counter >= 1 {
-				flag = false
-				counter = 0
-			}
-			io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("%s\n", scanner.Text())))
-		} else {
-			if !flag {
-				io.Copy(os.Stdout, strings.NewReader("\n"))
-			}
-			counter++
-			flag = true
-		}
 	}
 }
 
