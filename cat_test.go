@@ -1,7 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
+	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -31,6 +37,7 @@ func TestGetNonPrintingStr(t *testing.T) {
 	if GetNonPrintingStr('\t') != "^I" {
 		t.Errorf("Wrong string for byte \t and ")
 	}
+	*displayTabChar = false
 }
 
 func TestChoose(t *testing.T) {
@@ -48,7 +55,149 @@ func TestChoose(t *testing.T) {
 	}
 }
 
-func TestCat(t *testing.T) {
+func TestCat1(t *testing.T) {
+	// when no input handler and flags are sent
 	args := []string{"./cat"}
-	Cat(args)
+	out := mockStdout(args, strings.NewReader("abcd\n"))
+	if out != "abcd\n" {
+		t.Errorf("Error when no input handler and flags are sent")
+	}
+}
+
+func TestCat2(t *testing.T) {
+	// when no flags are given
+	args := []string{"./cat", "testdata/dummy_data"}
+	out := mockStdout(args, os.Stdin)
+	f, _ := os.OpenFile("testdata/dummy_data", os.O_RDONLY, 0755)
+	b := make([]byte, 1024)
+	f.Read(b)
+	if !equal(out, b) {
+		t.Errorf("Error when no flags are sent")
+	}
+}
+
+func TestCat3(t *testing.T) {
+	// error when invalid filename given
+	if os.Getenv("EXIT") == "true" {
+		args := []string{"./cat", "abcd"}
+		Cat(args, os.Stdin)
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestCat3")
+	cmd.Env = append(os.Environ(), "EXIT=true")
+	output, _ := cmd.StderrPipe()
+	if err := cmd.Start(); err != nil {
+		t.Error(err)
+	}
+
+	outBytes, _ := ioutil.ReadAll(output)
+	if !equal("open abcd: no such file or directory\n", outBytes) {
+		t.Error("error string when invalid filename doesn't match")
+	}
+
+	err := cmd.Wait()
+	if e, ok := err.(*exec.ExitError); !ok || e.Success() {
+		t.Error("error when invalid filename given doesn't exit")
+	}
+}
+
+func TestCatFlagb(t *testing.T) {
+	args := []string{"./cat", "-b", "testdata/dummy_data"}
+	*numberNonBlankOutputLines = true
+	out := mockStdout(args, os.Stdin)
+	f, _ := os.OpenFile("testdata/dummy_data_flagb", os.O_RDONLY, 0755)
+	b := make([]byte, 1024)
+	f.Read(b)
+	if !equal(out, b) {
+		t.Errorf("Error when flag b is sent")
+	}
+	*numberNonBlankOutputLines = false
+}
+
+func TestCatFlagev(t *testing.T) {
+	args := []string{"./cat", "-e", "testdata/dummy_data"}
+	*displayDollarAtEnd = true
+	out := mockStdout(args, os.Stdin)
+	f, _ := os.OpenFile("testdata/dummy_data_flage", os.O_RDONLY, 0755)
+	b := make([]byte, 1024)
+	f.Read(b)
+	if !equal(out, b) {
+		t.Errorf("Error when flag e is sent")
+	}
+	*displayDollarAtEnd = false
+}
+
+func TestCatFlagn(t *testing.T) {
+	args := []string{"./cat", "-n", "testdata/dummy_data"}
+	*numberOutputLines = true
+	out := mockStdout(args, os.Stdin)
+	f, _ := os.OpenFile("testdata/dummy_data_flagn", os.O_RDONLY, 0755)
+	b := make([]byte, 1024)
+	f.Read(b)
+	if !equal(out, b) {
+		t.Errorf("Error when flag n is sent")
+	}
+	*numberOutputLines = false
+}
+
+func TestCatFlags(t *testing.T) {
+	args := []string{"./cat", "-s", "testdata/dummy_data"}
+	*singleSpacedOutput = true
+	out := mockStdout(args, os.Stdin)
+	f, _ := os.OpenFile("testdata/dummy_data_flags", os.O_RDONLY, 0755)
+	b := make([]byte, 1024)
+	f.Read(b)
+	if !equal(out, b) {
+		t.Errorf("Error when flag s is sent")
+	}
+	*singleSpacedOutput = false
+}
+
+func TestCatMultipleFlags(t *testing.T) {
+	args := []string{"./cat", "-b", "-e", "-s", "-u", "-t", "testdata/dummy_data"}
+	*numberNonBlankOutputLines = true
+	*displayDollarAtEnd = true
+	*singleSpacedOutput = true
+	*displayTabChar = true
+	*disableOutputBuffer = true
+	out := mockStdout(args, os.Stdin)
+	f, _ := os.OpenFile("testdata/dummy_data_multiple_flags", os.O_RDONLY, 0755)
+	b := make([]byte, 1024)
+	f.Read(b)
+	if !equal(out, b) {
+		t.Errorf("Error when multiple flags are sent")
+	}
+	*numberNonBlankOutputLines = false
+	*displayDollarAtEnd = false
+	*singleSpacedOutput = false
+	*displayTabChar = false
+	*disableOutputBuffer = false
+}
+
+func equal(str string, b []byte) bool {
+	for i, value := range b {
+		if i < len(str) && value != str[i] {
+			fmt.Println("error: ", string(value), " :", i)
+			return false
+		}
+	}
+	return true
+}
+
+func mockStdout(args []string, reader io.Reader) string {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	Cat(args, reader)
+	output := make(chan string)
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output <- buf.String()
+	}()
+
+	w.Close()
+	os.Stdout = oldStdout
+	out := <-output
+	return out
 }

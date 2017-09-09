@@ -1,0 +1,11 @@
+$
+    1 all: fmt cat$
+$
+    2 cat: cat.go$
+    3 ^Igo build -o cat cat.go$
+$
+    4 fmt:$
+    5 ^Igo fmt$
+$
+    6 clean:$
+    7 ^Igo clean$

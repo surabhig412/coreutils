@@ -1,0 +1,12 @@
+    1 
+    2 all: fmt cat
+    3 
+    4 
+    5 cat: cat.go
+    6 	go build -o cat cat.go
+    7 
+    8 fmt:
+    9 	go fmt
+    10 
+    11 clean:
+    12 	go clean

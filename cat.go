@@ -21,12 +21,12 @@ var (
 
 func main() {
 	flag.Parse()
-	Cat(os.Args)
+	Cat(os.Args, os.Stdin)
 }
 
-func Cat(args []string) {
+func Cat(args []string, r io.Reader) {
 	if len(args) == 1 {
-		io.Copy(os.Stdout, os.Stdin)
+		io.Copy(os.Stdout, r)
 		return
 	}
 
@@ -50,12 +50,12 @@ func Cat(args []string) {
 		for scanner.Scan() {
 			output := scanner.Text()
 			if *numberOutputLines && !*numberNonBlankOutputLines {
-				output = fmt.Sprintf("\t%d %s", counter, output)
+				output = fmt.Sprintf("    %d %s", counter, output)
 				counter++
 			}
 			if *numberNonBlankOutputLines {
 				if output != "" {
-					output = fmt.Sprintf("\t%d %s", counter, output)
+					output = fmt.Sprintf("    %d %s", counter, output)
 					counter++
 				}
 			}
