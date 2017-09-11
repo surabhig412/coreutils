@@ -1,12 +1,14 @@
 
-all: fmt cat tr test
-
+all: fmt cat tr wc test
 
 cat: cat.go
 	go build -o cat cat.go
 
 tr: tr.go
 	go build -o tr tr.go
+
+wc: wc.go
+	go build -o wc wc.go
 
 test: cat_test tr_test
 
