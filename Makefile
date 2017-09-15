@@ -13,10 +13,10 @@ wc: wc.go
 test: cat_test tr_test
 
 cat_test:
-	go test -coverprofile cover.out cat.go cat_test.go
+	go test -cover cat.go cat_test.go
 
 tr_test:
-	go test -coverprofile cover.out tr.go tr_test.go
+	go test -cover tr.go tr_test.go
 
 fmt:
 	go fmt
