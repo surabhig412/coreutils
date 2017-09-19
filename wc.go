@@ -68,9 +68,10 @@ func setReader(options []string) [][]byte {
 		if err != nil {
 			f := &fileStat{Name: v, Error: errors.New("wc: " + err.Error())}
 			wcMap[i] = f
-			return fileBytes
+		} else {
+			wcMap[i] = &fileStat{Name: v}
+
 		}
-		wcMap[i] = &fileStat{Name: v}
 		fileBytes = append(fileBytes, fileByte)
 	}
 	return fileBytes
@@ -99,7 +100,6 @@ func countLines(wcBytes [][]byte) {
 	for i, wcByte := range wcBytes {
 		countByNewLineDelim(i, wcByte)
 	}
-
 }
 
 func countBytes(wcBytes [][]byte) {
@@ -132,7 +132,6 @@ func calculateMetrics() (lineSum, wordSum, characterSum, byteSum int64) {
 		} else {
 			var message string
 			if *line {
-
 				message = fmt.Sprintf("\t%d", wcMap[keyIndex].LineCount)
 				lineSum = lineSum + wcMap[keyIndex].LineCount
 			}
@@ -203,7 +202,6 @@ func main() {
 	wcMap = make(map[int]*fileStat)
 	totalOptions := calculateOptions()
 	wcBytes := setReader(os.Args[totalOptions:])
-
 	if *line {
 		countLines(wcBytes)
 	}

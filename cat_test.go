@@ -7,9 +7,16 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 )
+
+type ClosingBuffer struct {
+	*bytes.Buffer
+}
+
+func (cb *ClosingBuffer) Close() error {
+	return nil
+}
 
 func TestGetNonPrintingStr(t *testing.T) {
 	if GetNonPrintingStr(65) != "A" {
@@ -58,7 +65,10 @@ func TestChoose(t *testing.T) {
 func TestCat1(t *testing.T) {
 	// when no input handler and flags are sent
 	args := []string{"./cat"}
-	out := mockStdout(args, strings.NewReader("abcd\n"))
+	var rc io.ReadCloser
+	cb := &ClosingBuffer{bytes.NewBufferString("abcd\n")}
+	rc = cb
+	out := mockStdout(args, rc)
 	if out != "abcd\n" {
 		t.Errorf("Error when no input handler and flags are sent")
 	}
@@ -104,6 +114,9 @@ func TestCat3(t *testing.T) {
 func TestCatFlagb(t *testing.T) {
 	args := []string{"./cat", "-b", "testdata/dummy_data"}
 	*numberNonBlankOutputLines = true
+	defer func() {
+		*numberNonBlankOutputLines = false
+	}()
 	out := mockStdout(args, os.Stdin)
 	f, _ := os.OpenFile("testdata/dummy_data_flagb", os.O_RDONLY, 0755)
 	b := make([]byte, 1024)
@@ -111,12 +124,14 @@ func TestCatFlagb(t *testing.T) {
 	if !equal(out, b) {
 		t.Errorf("Error when flag b is sent")
 	}
-	*numberNonBlankOutputLines = false
 }
 
 func TestCatFlagev(t *testing.T) {
 	args := []string{"./cat", "-e", "testdata/dummy_data"}
 	*displayDollarAtEnd = true
+	defer func() {
+		*displayDollarAtEnd = false
+	}()
 	out := mockStdout(args, os.Stdin)
 	f, _ := os.OpenFile("testdata/dummy_data_flage", os.O_RDONLY, 0755)
 	b := make([]byte, 1024)
@@ -124,12 +139,14 @@ func TestCatFlagev(t *testing.T) {
 	if !equal(out, b) {
 		t.Errorf("Error when flag e is sent")
 	}
-	*displayDollarAtEnd = false
 }
 
 func TestCatFlagn(t *testing.T) {
 	args := []string{"./cat", "-n", "testdata/dummy_data"}
 	*numberOutputLines = true
+	defer func() {
+		*numberOutputLines = false
+	}()
 	out := mockStdout(args, os.Stdin)
 	f, _ := os.OpenFile("testdata/dummy_data_flagn", os.O_RDONLY, 0755)
 	b := make([]byte, 1024)
@@ -137,12 +154,14 @@ func TestCatFlagn(t *testing.T) {
 	if !equal(out, b) {
 		t.Errorf("Error when flag n is sent")
 	}
-	*numberOutputLines = false
 }
 
 func TestCatFlags(t *testing.T) {
 	args := []string{"./cat", "-s", "testdata/dummy_data"}
 	*singleSpacedOutput = true
+	defer func() {
+		*singleSpacedOutput = false
+	}()
 	out := mockStdout(args, os.Stdin)
 	f, _ := os.OpenFile("testdata/dummy_data_flags", os.O_RDONLY, 0755)
 	b := make([]byte, 1024)
@@ -150,7 +169,6 @@ func TestCatFlags(t *testing.T) {
 	if !equal(out, b) {
 		t.Errorf("Error when flag s is sent")
 	}
-	*singleSpacedOutput = false
 }
 
 func TestCatMultipleFlags(t *testing.T) {
@@ -160,6 +178,13 @@ func TestCatMultipleFlags(t *testing.T) {
 	*singleSpacedOutput = true
 	*displayTabChar = true
 	*disableOutputBuffer = true
+	defer func() {
+		*numberNonBlankOutputLines = false
+		*displayDollarAtEnd = false
+		*singleSpacedOutput = false
+		*displayTabChar = false
+		*disableOutputBuffer = false
+	}()
 	out := mockStdout(args, os.Stdin)
 	f, _ := os.OpenFile("testdata/dummy_data_multiple_flags", os.O_RDONLY, 0755)
 	b := make([]byte, 1024)
@@ -167,11 +192,6 @@ func TestCatMultipleFlags(t *testing.T) {
 	if !equal(out, b) {
 		t.Errorf("Error when multiple flags are sent")
 	}
-	*numberNonBlankOutputLines = false
-	*displayDollarAtEnd = false
-	*singleSpacedOutput = false
-	*displayTabChar = false
-	*disableOutputBuffer = false
 }
 
 func equal(str string, b []byte) bool {
@@ -184,7 +204,7 @@ func equal(str string, b []byte) bool {
 	return true
 }
 
-func mockStdout(args []string, reader io.Reader) string {
+func mockStdout(args []string, reader io.ReadCloser) string {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
@@ -198,6 +218,5 @@ func mockStdout(args []string, reader io.Reader) string {
 
 	w.Close()
 	os.Stdout = oldStdout
-	out := <-output
-	return out
+	return <-output
 }

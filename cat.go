@@ -24,13 +24,13 @@ func main() {
 	Cat(os.Args, os.Stdin)
 }
 
-func Cat(args []string, r io.Reader) {
+func Cat(args []string, r io.ReadCloser) {
 	if len(args) == 1 {
 		io.Copy(os.Stdout, r)
 		return
 	}
 
-	for _, fn := range args[1:] {
+	for i, fn := range args[1:] {
 		fh, err := Choose(fn)
 
 		if err != nil {
@@ -38,8 +38,11 @@ func Cat(args []string, r io.Reader) {
 			os.Exit(1)
 		}
 
-		if fh == nil {
+		if fh == nil && i < len(args[1:])-1 {
 			continue
+		}
+		if fh == nil {
+			fh = r
 		}
 
 		defer fh.Close()
