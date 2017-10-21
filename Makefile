@@ -1,5 +1,8 @@
 
-all: fmt cat tr wc test
+all: fmt cat tr wc head test
+
+head: head.go
+	go build -o head head.go
 
 cat: cat.go
 	go build -o cat cat.go
